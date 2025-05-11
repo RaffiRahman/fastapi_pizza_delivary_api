@@ -35,7 +35,7 @@ class Order(Base):
     quantity = Column(Integer, nullable= False)
     order_status = Column(ChoiceType(ORDER_STATUSES), default= 'PENDING')
     pizza_size = Column(ChoiceType(PIZZA_SIZES), default= 'SMALL')
-    user_id = Column(Integer, ForeignKey('users.id'))
+    user_id = Column(Integer, ForeignKey('user.id'))
     user = relationship('User', back_populates= 'orders')
 
     def __repr__(self):

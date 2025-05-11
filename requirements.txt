@@ -1,5 +1,7 @@
 fastapi
 uvicorn
 sqlalchemy
-sqlalchemy_utils
+sqlalchemy-utils
 psycopg2-binary
+pydantic
+werkzeug
