@@ -3,7 +3,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from database import SessionLocal, engine, get_db
 from schemas import SignUpModel, LoginModel
-from models import User
+from models import User, Order
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import Session
 from fastapi_jwt_auth import AuthJWT
