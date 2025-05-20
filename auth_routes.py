@@ -2,7 +2,7 @@ from fastapi import APIRouter, status, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from database import SessionLocal, engine, get_db
-from schemas import SignUpModel, LoginModel
+from schemas import SignUpModel, LoginModel, UserResponseModel
 from models import User, Order
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import Session
@@ -27,7 +27,7 @@ async def hello(Authorize: AuthJWT = Depends()):
                             detail= "Invalid credentials")
     return {'message': 'Hello'}
 
-@auth_router.post('/signup', response_model= SignUpModel,
+@auth_router.post('/signup', response_model= UserResponseModel,
                   status_code=status.HTTP_201_CREATED
                   )
 def signup(user: SignUpModel, db: Session = Depends(get_db)):
@@ -52,7 +52,12 @@ def signup(user: SignUpModel, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+    return {
+        "username": new_user.username,
+        "email": new_user.email,
+        "is_active": new_user.is_active,
+        "is_staff": new_user.is_staff
+    }
 
 #login route
 
@@ -81,7 +86,7 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
         Authorize.jwt_refresh_token_required()
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORABLE,
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail= "Please provide a valid refresh token")
 
     current_user = Authorize.get_jwt_subject()
