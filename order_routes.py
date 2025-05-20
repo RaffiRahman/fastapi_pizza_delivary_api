@@ -103,3 +103,19 @@ async def get_order_by_id(id: int, Authorize: AuthJWT = Depends()):
             detail= "User not allowed to see this order"
         )
 
+@order_router.get('/user/orders')
+async  def get_user_orders(Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_required()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORABLE,
+            detail= "Invalid Username or Password"
+        )
+
+    current_user = Authorize.get_jwt_subject()
+    user = session.query(User).filter(User.username == current_user).first()
+
+    return jsonable_encoder(user.orders)
+
