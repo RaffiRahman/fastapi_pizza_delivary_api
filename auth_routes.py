@@ -3,7 +3,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from database import SessionLocal, engine, get_db
 from schemas import SignUpModel, LoginModel, UserResponseModel
-from models import User, Order
+from models import User
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import Session
 from fastapi_jwt_auth import AuthJWT
@@ -19,6 +19,9 @@ session = SessionLocal(bind= engine)
 
 @auth_router.get('/')
 async def hello(Authorize: AuthJWT = Depends()):
+    """
+        ## Sample hello route
+    """
     try:
         Authorize.jwt_required()
 
@@ -30,7 +33,19 @@ async def hello(Authorize: AuthJWT = Depends()):
 @auth_router.post('/signup', response_model= UserResponseModel,
                   status_code=status.HTTP_201_CREATED
                   )
-def signup(user: SignUpModel, db: Session = Depends(get_db)):
+async def signup(user: SignUpModel, db: Session = Depends(get_db)):
+    """
+        ## Create a user
+        This requires the following
+        ```
+                username:int
+                email:str
+                password:str
+                is_staff:bool
+                is_active:bool
+
+        ```
+    """
     db_email = db.query(User).filter(User.email == user.email).first()
     if db_email is not None:
         raise HTTPException(status_code= status.HTTP_400_BAD_REQUEST,
@@ -63,6 +78,15 @@ def signup(user: SignUpModel, db: Session = Depends(get_db)):
 
 @auth_router.post('/login', status_code= 200)
 async def login(user: LoginModel, Authorize: AuthJWT = Depends()):
+    """
+        ## Login a user
+        This requires
+            ```
+                    username:str
+                    password:str
+            ```
+        and returns a token pair `access` and `refresh`
+    """
     db_user= session.query(User).filter(User.username == user.username).first()
     if db_user and check_password_hash(db_user.password, user.password):
         access_token = Authorize.create_access_token(subject= db_user.username)
@@ -82,6 +106,11 @@ async def login(user: LoginModel, Authorize: AuthJWT = Depends()):
 
 @auth_router.get('/refresh')
 async def refresh_token(Authorize: AuthJWT = Depends()):
+    """
+        ## create a fresh token
+        This creates a fresh token. It requires a refresh token.
+
+    """
     try:
         Authorize.jwt_refresh_token_required()
 

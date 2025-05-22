@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi_jwt_auth import AuthJWT
 from models import User, Order
 from schemas import OrderModel, OrderStatusModel
-from database import engine, SessionLocal, get_db
+from database import engine, SessionLocal
 from fastapi.encoders import jsonable_encoder
 
 
@@ -15,6 +15,11 @@ session = SessionLocal(bind= engine)
 
 @order_router.get('/')
 async def hello(Authorize: AuthJWT = Depends()):
+
+    """
+        ## A sample hello route
+        This returns hello
+    """
     try:
         Authorize.jwt_required()
 
@@ -26,6 +31,13 @@ async def hello(Authorize: AuthJWT = Depends()):
 
 @order_router.post('/order', status_code=status.HTTP_201_CREATED)
 async def place_an_order(order: OrderModel, Authorize: AuthJWT=Depends()):
+
+    """
+        ## Placing an order
+        This requires the following
+        - quantity: integer
+        - pizza_size: str
+    """
     try:
         Authorize.jwt_required()
 
@@ -58,6 +70,10 @@ async def place_an_order(order: OrderModel, Authorize: AuthJWT=Depends()):
 
 @order_router.get('/orders')
 async def list_all_orders(Authorize: AuthJWT = Depends()):
+    """
+        ## List all orders
+        This lists all orders made. It can be accessed by superusers.
+    """
     try:
         Authorize.jwt_required()
 
@@ -80,6 +96,10 @@ async def list_all_orders(Authorize: AuthJWT = Depends()):
 
 @order_router.get('/orders/{id}')
 async def get_order_by_id(id: int, Authorize: AuthJWT = Depends()):
+    """
+        ## Get an order by its id
+        This gets a order by its id and is only accessed by superusers.
+    """
     try:
         Authorize.jwt_required()
 
@@ -105,6 +125,10 @@ async def get_order_by_id(id: int, Authorize: AuthJWT = Depends()):
 
 @order_router.get('/user/orders')
 async  def get_user_orders(Authorize: AuthJWT = Depends()):
+    """
+        ## Get a current user's orders
+        This list the orders made by the currently logged in user.
+    """
     try:
         Authorize.jwt_required()
 
@@ -122,6 +146,10 @@ async  def get_user_orders(Authorize: AuthJWT = Depends()):
 
 @order_router.get('/user/order/{id}')
 async def get_specific_order(id: int, Authorize: AuthJWT = Depends()):
+    """
+        ## Get a specific order by the currently logged in user.
+        This return an order by ID for the currently logged in user.
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -144,6 +172,12 @@ async def get_specific_order(id: int, Authorize: AuthJWT = Depends()):
 
 @order_router.put('/order/update/{id}/')
 async def update_order(id: int, order: OrderModel, Authorize: AuthJWT = Depends()):
+    """
+        ## Updating an order
+        This updates an order and requires the following
+        - quantity: integer
+        - pizza_size: str
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -171,6 +205,11 @@ async def update_order_status(
         id: int,
         order: OrderStatusModel,
         Authorize: AuthJWT = Depends()):
+    """
+        ## Update an order's status
+        This is for updating an order's status and requires the 'order_status' in str format.
+        This is only accessed by superusers.
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -196,3 +235,28 @@ async def update_order_status(
             "order_status": order_to_update.order_status
         }
         return jsonable_encoder(response)
+
+@order_router.delete('/order/delete/{id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_an_order(
+        id:int,
+        Authorize: AuthJWT = Depends()
+):
+    """
+        ## Delete an order
+        This deletes an order by its ID.
+    """
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Token"
+        )
+
+    order_to_delete= session.query(Order).filter(Order.id == id).first()
+    session.delete(order_to_delete)
+
+    session.commit()
+
+    return order_to_delete
+
