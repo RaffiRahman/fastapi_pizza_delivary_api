@@ -2,6 +2,7 @@ from database import Base
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy_utils.types import ChoiceType
+from datetime import datetime
 
 class User(Base):
     __tablename__ = 'user'
@@ -16,8 +17,14 @@ class User(Base):
     def __repr__(self):
         return f"<User {self.username}>"
 
+class TokenBlacklist(Base):
+    __tablename__ = 'token_blacklist'
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(500), unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-
+    def __repr__(self):
+        return f"<BlacklistedToken {self.token}>"
 
 class Order(Base):
     ORDER_STATUSES = (

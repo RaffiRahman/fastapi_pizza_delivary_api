@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from typing import Set
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -41,6 +42,9 @@ class UserResponseModel(BaseModel):
 
 class Settings(BaseModel):
     authjwt_secret_key: str = 'c27ef4b9f6e485e5865f5de8edca3d5cfb345f7be9f4e535c7e529ebeefaf2a6'
+    authjwt_token_location: Set[str] = Field(default_factory=lambda: {'headers'})
+    authjwt_denylist_enabled: bool = True
+    authjwt_denylist_token_checks: Set[str] = Field(default_factory=lambda: {'access', 'refresh'})
 
 class LoginModel(BaseModel):
     username: str

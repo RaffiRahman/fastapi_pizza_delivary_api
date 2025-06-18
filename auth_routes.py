@@ -1,9 +1,10 @@
+from datetime import datetime
 from fastapi import APIRouter, status, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from database import SessionLocal, engine, get_db
 from schemas import SignUpModel, LoginModel, UserResponseModel
-from models import User
+from models import User, TokenBlacklist
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import Session
 from fastapi_jwt_auth import AuthJWT
@@ -124,3 +125,38 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
 
     return jsonable_encoder({'access_token': access_token})
 
+
+# logout
+@auth_router.post('/logout')
+async def logout(Authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
+    """
+    ## Logout a user
+    This invalidates the current access token, logging the user out.
+    Requires a valid access token in the Authorization header.
+    """
+    try:
+        Authorize.jwt_required()
+
+        # Get the current token and add it to the blacklist
+        jti = Authorize.get_raw_jwt()['jti']
+        current_time = datetime.utcnow()
+
+        # Check if token is already blacklisted
+        existing_token = db.query(TokenBlacklist).filter(TokenBlacklist.token == jti).first()
+        if existing_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token already invalidated"
+            )
+
+        # Add token to blacklist
+        db.add(TokenBlacklist(token=jti, created_at=current_time))
+        db.commit()
+
+        return {"message": "Successfully logged out"}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )

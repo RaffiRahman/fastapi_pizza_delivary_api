@@ -4,10 +4,13 @@ from fastapi.routing import APIRoute
 from fastapi.openapi.utils import get_openapi
 from auth_routes import auth_router
 from order_routes import order_router
-from database import engine
+from database import engine, SessionLocal
 import models
 from fastapi_jwt_auth import AuthJWT
 from schemas import Settings
+from fastapi_jwt_auth.exceptions import AuthJWTException
+from fastapi import Request
+from fastapi.responses import JSONResponse
 
 app = FastAPI()
 
@@ -70,3 +73,22 @@ app.include_router(auth_router)
 app.include_router(order_router)
 
 models.Base.metadata.create_all(bind=engine)
+
+#________________________________________________________________________________
+
+@app.exception_handler(AuthJWTException)
+def authjwt_exception_handler(request: Request, exc: AuthJWTException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.message}
+    )
+
+@AuthJWT.token_in_denylist_loader
+def check_if_token_in_blacklist(decrypted_token):
+    jti = decrypted_token['jti']
+    db = SessionLocal()
+    try:
+        token = db.query(models.TokenBlacklist).filter(models.TokenBlacklist.token == jti).first()
+        return token is not None
+    finally:
+        db.close()
