@@ -236,6 +236,12 @@ async def update_order_status(
         }
         return jsonable_encoder(response)
 
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only staff members can update order status"
+        )
+
 @order_router.delete('/order/delete/{id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_an_order(
         id:int,
