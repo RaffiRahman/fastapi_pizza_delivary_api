@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, status, Depends, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from database import SessionLocal, engine, get_db
@@ -27,7 +27,7 @@ async def hello(Authorize: AuthJWT = Depends()):
         Authorize.jwt_required()
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORABLE,
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail= "Invalid credentials")
     return {'message': 'Hello'}
 
@@ -128,35 +128,44 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
 
 # logout
 @auth_router.post('/logout')
-async def logout(Authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
+async def logout(
+        Authorize: AuthJWT = Depends(),
+        db: Session = Depends(get_db),
+        request: Request = None
+):
     """
     ## Logout a user
-    This invalidates the current access token, logging the user out.
-    Requires a valid access token in the Authorization header.
+    This invalidates both access and refresh tokens.
+    Returns 200 on success, 401 on invalid token.
     """
     try:
+        # Verify the access token first
         Authorize.jwt_required()
 
-        # Get the current token and add it to the blacklist
-        jti = Authorize.get_raw_jwt()['jti']
-        current_time = datetime.utcnow()
+        # Get both tokens from the request
+        access_jti = Authorize.get_raw_jwt()['jti']
+        refresh_token = request.cookies.get('refresh_token_cookie') or \
+                        (await request.json()).get('refresh_token', None)
 
-        # Check if token is already blacklisted
-        existing_token = db.query(TokenBlacklist).filter(TokenBlacklist.token == jti).first()
-        if existing_token:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Token already invalidated"
-            )
+        # Blacklist access token
+        db.add(TokenBlacklist(token=access_jti, created_at=datetime.utcnow()))
 
-        # Add token to blacklist
-        db.add(TokenBlacklist(token=jti, created_at=current_time))
+        # If refresh token exists, blacklist it too
+        if refresh_token:
+            try:
+                Authorize._token = refresh_token
+                refresh_jti = Authorize.get_raw_jwt(refresh_token)['jti']
+                db.add(TokenBlacklist(token=refresh_jti, created_at=datetime.utcnow()))
+            except:
+                pass  # Refresh token might be invalid/expired
+
         db.commit()
 
         return {"message": "Successfully logged out"}
 
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            detail=str(e)
         )

@@ -43,8 +43,11 @@ class UserResponseModel(BaseModel):
 class Settings(BaseModel):
     authjwt_secret_key: str = 'c27ef4b9f6e485e5865f5de8edca3d5cfb345f7be9f4e535c7e529ebeefaf2a6'
     authjwt_token_location: Set[str] = Field(default_factory=lambda: {'headers'})
+    authjwt_access_token_expires: int = 3600  # 1 hour
+    authjwt_refresh_token_expires: int = 86400  # 24 hours
     authjwt_denylist_enabled: bool = True
     authjwt_denylist_token_checks: Set[str] = Field(default_factory=lambda: {'access', 'refresh'})
+    authjwt_cookie_csrf_protect: bool = False  # Disable if not using cookies
 
 class LoginModel(BaseModel):
     username: str

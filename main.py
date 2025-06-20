@@ -5,6 +5,7 @@ from fastapi.openapi.utils import get_openapi
 from auth_routes import auth_router
 from order_routes import order_router
 from database import engine, SessionLocal
+from datetime import datetime, timedelta
 import models
 from fastapi_jwt_auth import AuthJWT
 from schemas import Settings
@@ -86,9 +87,18 @@ def authjwt_exception_handler(request: Request, exc: AuthJWTException):
 @AuthJWT.token_in_denylist_loader
 def check_if_token_in_blacklist(decrypted_token):
     jti = decrypted_token['jti']
-    db = SessionLocal()
+    db = None
     try:
-        token = db.query(models.TokenBlacklist).filter(models.TokenBlacklist.token == jti).first()
-        return token is not None
+        db = SessionLocal()
+        return db.query(models.TokenBlacklist).filter(
+            models.TokenBlacklist.token == jti,
+            models.TokenBlacklist.created_at >= (
+                datetime.utcnow() - timedelta(days=1)
+            )  # Only check recent blacklisted tokens
+        ).first() is not None
+    except Exception as e:
+        print(f"Blacklist check error: {e}")
+        return False
     finally:
-        db.close()
+        if db:
+            db.close()
