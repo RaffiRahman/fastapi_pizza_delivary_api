@@ -26,6 +26,17 @@ class TokenBlacklist(Base):
     def __repr__(self):
         return f"<BlacklistedToken {self.token}>"
 
+class PasswordResetToken(Base):
+    __tablename__ = 'password_reset_tokens'
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(80), nullable=False)
+    token = Column(String(100), unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+
+    def __repr__(self):
+        return f"<PasswordResetToken {self.token}>"
+
 class Order(Base):
     ORDER_STATUSES = (
         ('PENDING', 'pending'),

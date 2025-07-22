@@ -6,3 +6,4 @@ psycopg2-binary
 pydantic==1.10.7
 werkzeug
 fastapi_jwt_auth
+fastapi_mail

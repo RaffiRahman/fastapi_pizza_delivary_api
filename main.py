@@ -2,6 +2,7 @@ import inspect, re
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.openapi.utils import get_openapi
+from fastapi_mail import ConnectionConfig
 from auth_routes import auth_router
 from order_routes import order_router
 from database import engine, SessionLocal
@@ -102,3 +103,16 @@ def check_if_token_in_blacklist(decrypted_token):
     finally:
         if db:
             db.close()
+#_____________________________________________________________________________________
+
+# Email configuration
+conf = ConnectionConfig(
+    MAIL_USERNAME="your_email@example.com",
+    MAIL_PASSWORD="your_email_password",
+    MAIL_FROM="your_email@example.com",
+    MAIL_PORT=587,
+    MAIL_SERVER="smtp.example.com",
+    MAIL_TLS=True,
+    MAIL_SSL=False,
+    USE_CREDENTIALS=True
+)

@@ -1,13 +1,18 @@
-from datetime import datetime
-from fastapi import APIRouter, status, Depends, Request
+from datetime import datetime, timedelta
+from fastapi import APIRouter, status, Depends, Request, BackgroundTasks
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from pydantic import EmailStr
 from database import SessionLocal, engine, get_db
-from schemas import SignUpModel, LoginModel, UserResponseModel
-from models import User, TokenBlacklist
+from main import conf
+from schemas import SignUpModel, LoginModel, UserResponseModel, ForgotPasswordModel, ResetPasswordModel
+from models import User, TokenBlacklist, PasswordResetToken
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import Session
 from fastapi_jwt_auth import AuthJWT
+import secrets
+import string
 
 
 
@@ -169,3 +174,105 @@ async def logout(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
+
+# Password Reset
+def generate_reset_token(length=32):
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+async def send_reset_email(email: str, token: str, background_tasks: BackgroundTasks):
+    reset_link = f"http://yourfrontend.com/reset-password?token={token}"
+    message = MessageSchema(
+        subject="Password Reset Request",
+        recipients= [email],
+        body=f"""
+        You requested a password reset. 
+        Please click the following link to reset your password:
+        {reset_link}
+
+        This link will expire in 1 hour.
+        If you didn't request this, please ignore this email.
+        """,
+        subtype="plain"
+    )
+
+    fm = FastMail(conf)
+    background_tasks.add_task(fm.send_message, message)
+
+
+@auth_router.post('/forgot-password')
+async def forgot_password(
+        email_data: ForgotPasswordModel,
+        background_tasks: BackgroundTasks,
+        db: Session = Depends(get_db)
+):
+    """
+    ## Initiate password reset
+    This sends a password reset link to the user's email if the email exists.
+    """
+    user = db.query(User).filter(User.email == email_data.email).first()
+    if not user:
+        # Don't reveal whether email exists for security
+        return {"message": "If this email exists, a reset link has been sent"}
+
+    # Delete any existing tokens for this email
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.email == email_data.email
+    ).delete()
+
+    # Generate new token
+    token = generate_reset_token()
+    expires_at = datetime.utcnow() + timedelta(hours=1)
+
+    # Save token to database
+    reset_token = PasswordResetToken(
+        email=email_data.email,
+        token=token,
+        expires_at=expires_at
+    )
+    db.add(reset_token)
+    db.commit()
+
+    # Send email in background
+    await send_reset_email(email_data.email, token, background_tasks)
+
+    return {"message": "If this email exists, a reset link has been sent"}
+
+
+@auth_router.post('/reset-password')
+async def reset_password(
+        reset_data: ResetPasswordModel,
+        db: Session = Depends(get_db)
+):
+    """
+    ## Reset user password
+    This resets the user's password using a valid reset token.
+    """
+    # Find valid token
+    token_record = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == reset_data.token,
+        PasswordResetToken.expires_at >= datetime.utcnow(),
+        PasswordResetToken.used == False
+    ).first()
+
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired token"
+        )
+
+    # Find user
+    user = db.query(User).filter(User.email == token_record.email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Update password
+    user.password = generate_password_hash(reset_data.new_password)
+    token_record.used = True
+    db.commit()
+
+    return {"message": "Password has been reset successfully"}

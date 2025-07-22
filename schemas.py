@@ -1,5 +1,5 @@
 from typing import Set
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 
 
@@ -52,6 +52,13 @@ class Settings(BaseModel):
 class LoginModel(BaseModel):
     username: str
     password: str
+
+class ForgotPasswordModel(BaseModel):
+    email: EmailStr
+
+class ResetPasswordModel(BaseModel):
+    token: str
+    new_password: str
 
 class OrderModel(BaseModel):
     id: Optional[int]
